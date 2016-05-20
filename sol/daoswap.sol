@@ -1,8 +1,3 @@
-
-
-
-import "./DAO.sol";
-
 contract DaoSwap {
   /*address owner1, owner2, owner3;*/
 
@@ -28,16 +23,29 @@ contract DaoSwap {
   Account[] sellers;
   Account[] buyers;
 
-  // expiry date
-  uint public expiryDate;
+  // cutoff for entering as buyer or seller
+  uint public cutoffEntry;
+  // cutoff for calling settlement on entire contract
+  // i.e. sellers must have transfered tokens by this
+  uint public cutoffExit;
+  // this is set to true when the contract is over
+  // i.e. all settlement complete
+  bool public settled;
 
   // constructor
   function DaoSwap() {
     owner = msg.sender;
     TheDao = DAO(DAO_ADDRESS);
-    /*DaoToken = Token(DAO_TOKEN);
-    DaoTokenCreation = TokenCreation(DAO_TOKEN_CREATION);*/
-    expiryDate = TheDao.closingTime + 1 days;
+    settled = false;
+
+    cutoffEntry = TheDao.closingTime;
+    cutoffExit = cutoffEntry + 3 days;
+  }
+
+  // destructor
+  function kill() {
+    if (msg.sender != owner) { throw; }
+
 
   }
 
@@ -68,7 +76,8 @@ contract DaoSwap {
   modifier afterExpiry() { if (now >= expiryDate) _ }
   // exported
   function CallExpiry() afterExpiry {
-    if (msg.sender != owner) { throw; }
+    // allowing anyone to call this
+    /*if (msg.sender != owner) { throw; }*/
 
     // backward indexing for FIFO
     _index_sellers = 0; //sellers.length - 1;
@@ -115,8 +124,10 @@ contract DaoSwap {
     // clear remaining buyers or sellers
     if (_index_sellers < sellers.length) { reimburseRemaining(sellers, _index_sellers); }
     if (_index_buyers < buyers.length) { reimburseRemaining(buyers, _index_buyers); }
+
+    // finally mark contract as settled
+    settled = true;
   }
-  // matches a buyer to a seller
   function sendSeller(address addr, uint number_tokens, bool sendDepositBool) {
     uint amount = number_tokens * SINGLE_TOKEN_PRICE_IN_FINNEY * WEI_PER_FINNEY;
     if (sendDepositBool) { amount *= 2; }
