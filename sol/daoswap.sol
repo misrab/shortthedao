@@ -2,7 +2,7 @@ contract DaoSwap {
   /*uint constant FINNEY_PER_ETHER = 1000;*/
   /*uint constant WEI_PER_FINNEY = 1000000000000000;*/
 
-  uint constant THOUSAND = 1000;
+  /*uint constant THOUSAND = 1000;*/
   uint constant HUNDRED = 100; // for % fee
   uint constant WEI_PER_ETHER = 1000000000000000000;
 
@@ -11,7 +11,10 @@ contract DaoSwap {
   // 14 wei for 1000 wei tokens
   // or 1.4 Ether per 100 tokens
   // we do this since 1 wei token is 0.014 wei, which is decimal
-  uint constant PRICE_THOUSAND_WEI_TOKENS_IN_WEI = 14;
+  /*uint constant PRICE_THOUSAND_WEI_TOKENS_IN_WEI = 14;*/
+
+  uint constant PRICE_TOKEN_IN_WEI = 14000000000000000;
+
   // this is to pay for this contract's execution and reward its value-add
   /*uint constant MIN_CONTRACT_FEE_IN_FINNEY = 50;*/
   uint constant PERCENT_CONTRACT_FEE = 1;
@@ -60,29 +63,30 @@ contract DaoSwap {
 
   // entering the contract
   function SellTokens() beforeCutoffEntry {
+    if (msg.value < MIN_WEI_VALUE) { throw; }
 
-    uint _number_tokens_in_wei_times_thousand = msg.value / PRICE_THOUSAND_WEI_TOKENS_IN_WEI;
-    uint _number_tokens_in_wei = _number_tokens_in_wei_times_thousand / THOUSAND;
+    /*uint _number_tokens_in_wei_times_thousand = msg.value / PRICE_THOUSAND_WEI_TOKENS_IN_WEI;*/
+    uint _number_tokens_in_wei = (msg.value * WEI_PER_ETHER) / PRICE_TOKEN_IN_WEI;
+    /*_number_tokens_in_wei_times_thousand / THOUSAND;*/
 
     // require deposit
     /*if (msg.value < (_number_tokens * SINGLE_TOKEN_PRICE_IN_FINNEY * WEI_PER_FINNEY) || _number_tokens < MIN_SELLER_TOKENS) {
       throw;
     }*/
-    if (msg.value < MIN_WEI_VALUE) { throw; }
+
 
     sellers.push(Account(msg.sender, _number_tokens_in_wei));
   }
   // almost identical to SellTokens()
   // TODO copy above when units fixed
   function BuyTokens() beforeCutoffEntry {
-
-    uint _number_tokens_in_wei_times_thousand = msg.value / PRICE_THOUSAND_WEI_TOKENS_IN_WEI;
-    uint _number_tokens_in_wei = _number_tokens_in_wei_times_thousand / THOUSAND;
-
     // may want to make this different for buyers and sellers
     if (msg.value < MIN_WEI_VALUE) { throw; }
+    /*uint _number_tokens_in_wei_times_thousand = msg.value / PRICE_THOUSAND_WEI_TOKENS_IN_WEI;*/
+    /*uint _number_tokens_in_wei = _number_tokens_in_wei_times_thousand / THOUSAND;*/
 
-    sellers.push(Account(msg.sender, _number_tokens_in_wei));
+    uint _number_tokens_in_wei = (msg.value * WEI_PER_ETHER) / PRICE_TOKEN_IN_WEI;
+    buyers.push(Account(msg.sender, _number_tokens_in_wei));
   }
 
   // the owner of this contract can execute the trades
@@ -153,19 +157,24 @@ contract DaoSwap {
   */
 
   // send revenue - fee
-  function sendSeller(address addr, uint number_tokens, bool sendDepositBool) {
-    uint amount = number_tokens * SINGLE_TOKEN_PRICE_IN_FINNEY * WEI_PER_FINNEY;
-    if (sendDepositBool) { amount *= 2; }
+  function sendSeller(address addr, uint number_tokens_in_wei) {
+    uint amount_before_fee = weiTokensToWei(number_tokens_in_wei);
+    uint fee = (amount_before_fee * PERCENT_CONTRACT_FEE) / HUNDRED;
 
-    addr.send(amount);
+
+    addr.send(amount_before_fee - fee);
   }
 
   // reimburse full amount
   function reimburseRemaining(Account[] accounts, uint index) {
     // first sellers then buyers
     for(uint i = index; i < accounts.length; i++) {
-      accounts[i].send(accounts[i].number_tokens * SINGLE_TOKEN_PRICE_IN_FINNEY * WEI_PER_FINNEY);
+      accounts[i].send(weiTokensToWei(accounts[i].number_tokens_in_wei));
     }
+  }
+
+  function weiTokensToWei(uint wei_tokens) returns (uint wei) {
+    return (wei_tokens * PRICE_TOKEN_IN_WEI) / WEI_PER_FINNEY;
   }
 
   // destructor
