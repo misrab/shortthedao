@@ -6,9 +6,9 @@ import "./DAO.sol";
 contract DaoSwap {
   /*address owner1, owner2, owner3;*/
 
-  uint constant FINNERY_PER_ETHER = 1000;
-  uint constant WEI_PER_FINNEY = 1000;
-  uint constant SINGLE_TOKEN_PRICE_IN_FINNEY = 14;
+  uint constant FINNEY_PER_ETHER = 1000;
+  uint constant WEI_PER_FINNEY = 1000000000000000;
+  uint constant SINGLE_TOKEN_PRICE_IN_FINNEY = 1400;
   // this is to pay for this contract's execution and reward its value-add
   uint constant CONTRACT_FEE_IN_FINNEY = 50;
   // to prevent spamming sellers list
