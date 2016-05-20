@@ -7,7 +7,7 @@ contract DaoSwap {
   uint constant WEI_PER_ETHER = 1000000000000000000;
 
   /*uint constant SINGLE_TOKEN_PRICE_IN_FINNEY = 1400;*/
-
+  
   // 14 wei for 1000 wei tokens
   // or 1.4 Ether per 100 tokens
   // we do this since 1 wei token is 0.014 wei, which is decimal
@@ -166,6 +166,7 @@ contract DaoSwap {
   }
 
   // reimburse full amount
+  // TODO - still charge fee for gas purposes?
   function reimburseRemaining(Account[] accounts, uint index) {
     // first sellers then buyers
     for(uint i = index; i < accounts.length; i++) {
