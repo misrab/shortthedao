@@ -39,14 +39,13 @@ contract DaoSwap {
     DaoTokenCreation = TokenCreation(DAO_TOKEN_CREATION);*/
     expiryDate = TheDao.closingTime + 1 days;
 
-    owner = msg.sender;
   }
 
 
   // entering the contract
   function SellTokens(uint _number_tokens) {
     // require deposit
-    if (msg.value < (_number_tokens * SINGLE_TOKEN_PRICE_IN_FINNEY * WEI_PER_FINNEY + CONTRACT_FEE_IN_FINNEY) || _number_tokens > MIN_SELLER_TOKENS) {
+    if (msg.value < (_number_tokens * SINGLE_TOKEN_PRICE_IN_FINNEY * WEI_PER_FINNEY + CONTRACT_FEE_IN_FINNEY) || _number_tokens < MIN_SELLER_TOKENS) {
       throw;
     }
 
