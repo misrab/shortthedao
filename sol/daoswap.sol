@@ -99,8 +99,8 @@ contract DaoSwap {
     /*if (msg.sender != owner) { throw; }*/
 
     // backward indexing for FIFO
-    _index_sellers = 0; //sellers.length - 1;
-    _index_buyers = 0; // buyers.length - 1;
+    uint _index_sellers = 0; //sellers.length - 1;
+    uint _index_buyers = 0; // buyers.length - 1;
     bool success;
     while (_index_sellers < sellers.length && _index_buyers < buyers.length) {
       // case 1: buyer and seller values match
@@ -130,11 +130,11 @@ contract DaoSwap {
         success = TheDao.transferFrom(sellers[_index_sellers].addr, buyers[_index_buyers].addr, buyers[_index_buyers].number_tokens_in_wei);
         if (success) {
           // first refund the amount so far
-          sellers[_index_sellers].number_tokens_in_wei -= buyers[_index_buyers].number_tokens_in_wei;
           sendSeller(sellers[_index_sellers].addr, buyers[_index_buyers].number_tokens_in_wei);
+          sellers[_index_sellers].number_tokens_in_wei -= buyers[_index_buyers].number_tokens_in_wei;
           _index_buyers++;
         } else {
-          // only decrement if we're skipping them because they failed
+          // only increment if we're skipping them because they failed
           _index_sellers++;
         }
       }
@@ -158,7 +158,9 @@ contract DaoSwap {
 
   // send revenue - fee
   function sendSeller(address addr, uint number_tokens_in_wei) {
+    // TODO - Multiply by two to accomodate the Deposit + Revenue
     uint amount_before_fee = weiTokensToWei(number_tokens_in_wei);
+
     uint fee = (amount_before_fee * PERCENT_CONTRACT_FEE) / HUNDRED;
 
 
@@ -170,12 +172,13 @@ contract DaoSwap {
   function reimburseRemaining(Account[] accounts, uint index) {
     // first sellers then buyers
     for(uint i = index; i < accounts.length; i++) {
+      // TODO - subtract the fee
       accounts[i].send(weiTokensToWei(accounts[i].number_tokens_in_wei));
     }
   }
 
   function weiTokensToWei(uint wei_tokens) returns (uint wei) {
-    return (wei_tokens * PRICE_TOKEN_IN_WEI) / WEI_PER_FINNEY;
+    return (wei_tokens * PRICE_TOKEN_IN_WEI) / WEI_PER_ETHER;
   }
 
   // destructor
