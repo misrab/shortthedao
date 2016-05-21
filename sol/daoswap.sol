@@ -5,7 +5,7 @@ contract DaoSwap {
   /*uint constant THOUSAND = 1000;*/
   uint constant HUNDRED = 100; // for % fee
   uint constant WEI_PER_ETHER = 1000000000000000000;
-
+  uint public swap_Ether_Balance;
   /*uint constant SINGLE_TOKEN_PRICE_IN_FINNEY = 1400;*/
   
   // 14 wei for 1000 wei tokens
@@ -64,7 +64,7 @@ contract DaoSwap {
   // entering the contract
   function SellTokens() beforeCutoffEntry {
     if (msg.value < MIN_WEI_VALUE) { throw; }
-
+    swap_Ether_Balance += msg.value;
     /*uint _number_tokens_in_wei_times_thousand = msg.value / PRICE_THOUSAND_WEI_TOKENS_IN_WEI;*/
     uint _number_tokens_in_wei = (msg.value * WEI_PER_ETHER) / PRICE_TOKEN_IN_WEI;
     /*_number_tokens_in_wei_times_thousand / THOUSAND;*/
@@ -82,6 +82,7 @@ contract DaoSwap {
   function BuyTokens() beforeCutoffEntry {
     // may want to make this different for buyers and sellers
     if (msg.value < MIN_WEI_VALUE) { throw; }
+    swap_Ether_Balance += msg.value;
     /*uint _number_tokens_in_wei_times_thousand = msg.value / PRICE_THOUSAND_WEI_TOKENS_IN_WEI;*/
     /*uint _number_tokens_in_wei = _number_tokens_in_wei_times_thousand / THOUSAND;*/
 
@@ -165,6 +166,7 @@ contract DaoSwap {
 
 
     addr.send(amount_before_fee - fee);
+    swap_Ether_Balance -= amount_before_fee - fee;
   }
 
   // reimburse full amount
@@ -173,12 +175,25 @@ contract DaoSwap {
     // first sellers then buyers
     for(uint i = index; i < accounts.length; i++) {
       // TODO - subtract the fee
-      accounts[i].send(weiTokensToWei(accounts[i].number_tokens_in_wei));
+      // TODO - Referencing the addr variable since accounts[i] should give the object. Please check
+      accounts[i].addr.send(weiTokensToWei(accounts[i].number_tokens_in_wei));
     }
   }
 
-  function weiTokensToWei(uint wei_tokens) returns (uint wei) {
+  // Changed the return variable name to 'amt' since 'wei' was not compiling
+  function weiTokensToWei(uint wei_tokens) returns (uint amt) {
     return (wei_tokens * PRICE_TOKEN_IN_WEI) / WEI_PER_ETHER;
+  }
+
+  // Distributing 80% to the buyers and 20% to the sellers
+  function distributeDeposits(){  
+    uint total_amount_buyer = swap_Ether_Balance * 0.8;
+    uint amount_per_buyer = total_amount_buyer / buyers.length;
+
+    for(uint i = 0; i < buyers.length; i++){
+      buyers[i].addr.send(amount_per_buyer);
+    }
+    exiter.send(amount_exiter);
   }
 
   // destructor
@@ -186,7 +201,7 @@ contract DaoSwap {
     // allow anyone
     /*if (msg.sender != owner) { throw; }*/
     if (!settled) { throw; }
-
+    distributeDeposits();
     suicide(exiter);
   }
 
