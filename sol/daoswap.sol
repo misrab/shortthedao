@@ -1,91 +1,74 @@
+/// @title A contract to trade DAO tokens from the DAO crowdsale
+/// before the crowdsale is over. See shortthedao.com and daohub.org
 contract DaoSwap {
-  /*uint constant FINNEY_PER_ETHER = 1000;*/
-  /*uint constant WEI_PER_FINNEY = 1000000000000000;*/
 
-  /*uint constant THOUSAND = 1000;*/
   uint constant HUNDRED = 100; // for % fee
   uint constant WEI_PER_ETHER = 1000000000000000000;
-  uint public swap_Ether_Balance;
-  uint public forfeited_deposits;
-  /*uint constant SINGLE_TOKEN_PRICE_IN_FINNEY = 1400;*/
-
-  // 14 wei for 1000 wei tokens
-  // or 1.4 Ether per 100 tokens
-  // we do this since 1 wei token is 0.014 wei, which is decimal
-  /*uint constant PRICE_THOUSAND_WEI_TOKENS_IN_WEI = 14;*/
-
-  uint constant PRICE_TOKEN_IN_WEI = 14000000000000000;
-
-  // this is to pay for this contract's execution and reward its value-add
-  /*uint constant MIN_CONTRACT_FEE_IN_FINNEY = 50;*/
-  uint constant PERCENT_CONTRACT_FEE = 1;
-  // to prevent spamming sellers list
-  // i.e. 10 * 100 tokens would be 14 ether, about 140 bucks
-  /*uint constant MIN_SELLER_TOKENS = 1000;*/
+  uint constant PRICE_TOKEN_IN_WEI = 13000000000000000;
+  uint constant PERCENT_CONTRACT_FEE = 2;
   uint constant MIN_WEI_VALUE = 5000000000000000000; // 5 ether
+  uint constant DEPOSIT_PERCENT = 10; // % deposit required
+  uint constant BUYER_FORFEITED_DEPOSIT_STAKE = 80;
 
 
+  /*address constant DAO_ADDRESS = 0xbb9bc244d798123fde783fcc1c72d3bb8c189413;*/
+  // address constants
+  DAO TheDao = DAO(0xbb9bc244d798123fde783fcc1c72d3bb8c189413);
 
-  address constant DAO_ADDRESS = 0xbb9bc244d798123fde783fcc1c72d3bb8c189413;
-  DAO TheDao;
+  address constant exiter = 0; // TODO = 0x...
 
-  address owner;
-  address constant exiter; // TODO = 0x...
-
-  // map seller to number of tokens for sale
-  /*mapping (address => uint) sellers;*/
-  // ! needs to be FIFO
   struct Account { address addr; uint number_tokens_in_wei; }
   Account[] sellers;
   Account[] buyers;
 
-  // cutoff for entering as buyer or seller
+  /// @notice Buyers and sellers must entered into the contract by this date
   uint public cutoffEntry;
-  // cutoff for calling settlement on entire contract
-  // i.e. sellers must have transfered tokens by this
+  /// @notice Sellers must have transfered their tokens by this date
+  /// to avoid forfeiting deposits, by calling approve(...) on the Dao contract
+  /// the usual way
   uint public cutoffExit;
-  // this is set to true when the contract is over
-  // i.e. all settlement complete
+  /// @notice This is set to true when the contract is over and
+  /// all accounts have been settled
   bool public settled = false;
+
+  uint public swap_ether_balance;
+  uint public forfeited_deposits;
+
+  /// @dev For special case where seller needs to go through many buyers
+  /// to settle; we want to refund their true deposit, not the last settlement
+  /// value
+  mapping (address => uint) pending_deposits;
 
   modifier afterCutoffExit() { if (now >= cutoffExit) _ }
   modifier beforeCutoffEntry() { if (now < cutoffEntry) _ }
 
   // constructor
   function DaoSwap() {
-    owner = msg.sender;
-    TheDao = DAO(DAO_ADDRESS);
-    /*settled = false;*/
-
-    cutoffEntry = TheDao.closingTime;
+    cutoffEntry = TheDao.closingTime();
     cutoffExit = cutoffEntry + 3 days;
   }
 
-
-  // entering the contract
+  /// @notice Enter into a contract with `msg.value` amount of
+  /// deposit. E.g. If the `DEPOSIT_PERCENT` is 10, this means 10 Ether would
+  /// represet a desire to sell 100 Ether equivalent of tokens minus micro-fees.
+  /// If no match is found, the deposit is returned after `cutoffExit` when
+  /// `CallExpiry` is called by anybody
   function SellTokens() beforeCutoffEntry {
     if (msg.value < MIN_WEI_VALUE) { throw; }
-    swap_Ether_Balance += msg.value;
-    /*uint _number_tokens_in_wei_times_thousand = msg.value / PRICE_THOUSAND_WEI_TOKENS_IN_WEI;*/
-    uint _number_tokens_in_wei = (msg.value * WEI_PER_ETHER) / PRICE_TOKEN_IN_WEI;
-    /*_number_tokens_in_wei_times_thousand / THOUSAND;*/
+    swap_ether_balance += msg.value;
 
-    // require deposit
-    /*if (msg.value < (_number_tokens * SINGLE_TOKEN_PRICE_IN_FINNEY * WEI_PER_FINNEY) || _number_tokens < MIN_SELLER_TOKENS) {
-      throw;
-    }*/
-
+    uint _number_tokens_in_wei = (HUNDRED / DEPOSIT_PERCENT) * (msg.value * WEI_PER_ETHER) / PRICE_TOKEN_IN_WEI;
 
     sellers.push(Account(msg.sender, _number_tokens_in_wei));
   }
-  // almost identical to SellTokens()
-  // TODO copy above when units fixed
+
+  /// @notice Enter into a conctract to purchase `msg.value` worth of tokens
+  /// at this contract's price of `PRICE_TOKEN_IN_WEI` minus micro-fees. If no
+  /// match found, the amount will be returned after `cutoffExit` when
+  /// `CallExpiry` is called by anybody
   function BuyTokens() beforeCutoffEntry {
-    // may want to make this different for buyers and sellers
     if (msg.value < MIN_WEI_VALUE) { throw; }
-    swap_Ether_Balance += msg.value;
-    /*uint _number_tokens_in_wei_times_thousand = msg.value / PRICE_THOUSAND_WEI_TOKENS_IN_WEI;*/
-    /*uint _number_tokens_in_wei = _number_tokens_in_wei_times_thousand / THOUSAND;*/
+    swap_ether_balance += msg.value;
 
     uint _number_tokens_in_wei = (msg.value * WEI_PER_ETHER) / PRICE_TOKEN_IN_WEI;
     buyers.push(Account(msg.sender, _number_tokens_in_wei));
@@ -97,12 +80,10 @@ contract DaoSwap {
   // is empty. Reimburse remaining
   // exported
   function CallExpiry() afterCutoffExit {
-    // allowing anyone to call this
-    /*if (msg.sender != owner) { throw; }*/
 
-    // backward indexing for FIFO
-    uint _index_sellers = 0; //sellers.length - 1;
-    uint _index_buyers = 0; // buyers.length - 1;
+    // FIFO indexing
+    uint _index_sellers = 0;
+    uint _index_buyers = 0;
     bool success;
     while (_index_sellers < sellers.length && _index_buyers < buyers.length) {
       // case 1: buyer and seller values match
@@ -131,7 +112,13 @@ contract DaoSwap {
       } else {
         success = TheDao.transferFrom(sellers[_index_sellers].addr, buyers[_index_buyers].addr, buyers[_index_buyers].number_tokens_in_wei);
         if (success) {
-          // first refund the amount so far
+          // make sure we remember the seller's true deposit amount for
+          // later reimbursement
+          if (pending_deposits[sellers[_index_sellers].addr] == 0) {
+            pending_deposits[sellers[_index_sellers].addr] = sellers[_index_sellers].number_tokens_in_wei;
+          }
+
+          // refund the amount so far
           sendSeller(sellers[_index_sellers].addr, buyers[_index_buyers].number_tokens_in_wei);
           sellers[_index_sellers].number_tokens_in_wei -= buyers[_index_buyers].number_tokens_in_wei;
           _index_buyers++;
@@ -140,6 +127,7 @@ contract DaoSwap {
           _index_sellers++;
         }
       }
+
       // keep track of amount of forfeited deposits
       // for later distribution
       if (!success) {
@@ -148,8 +136,6 @@ contract DaoSwap {
     }
 
     // clear remaining buyers or sellers
-    /*if (_index_sellers < sellers.length) { reimburseRemaining(sellers, _index_sellers); }*/
-    /*if (_index_buyers < buyers.length) { reimburseRemaining(buyers, _index_buyers); }*/
     reimburseRemaining(sellers, _index_sellers);
     reimburseRemaining(buyers, _index_buyers);
 
@@ -163,51 +149,60 @@ contract DaoSwap {
     Private methods
   */
 
-  // send revenue - fee
-  function sendSeller(address addr, uint number_tokens_in_wei) {
-    // TODO - Multiply by two to accomodate the Deposit + Revenue
-    uint amount_before_fee = weiTokensToWei(number_tokens_in_wei);
+  /// @dev Send seller their deposit and revenue minus fee
+  /// @param `addr` The address of the seller
+  /// @param `number_tokens_in_wei` The number of tokens in wei units that they
+  /// should receive revenue for
+  function sendSeller(address addr, uint number_tokens_in_wei) internal {
+    if (pending_deposits[sellers[_index_sellers].addr] > 0) {
+      number_tokens_in_wei = pending_deposits[sellers[_index_sellers].addr];
+    }
 
-    uint fee = (amount_before_fee * PERCENT_CONTRACT_FEE) / HUNDRED;
+    uint _revenue = weiTokensToWei(number_tokens_in_wei);
+    uint _deposit = (_revenue * DEPOSIT_PERCENT) / HUNDRED;
+    uint _fee = ((_revenue + _deposit) * PERCENT_CONTRACT_FEE) / HUNDRED;
 
+    uint _to_send = _revenue + _deposit - fee;
 
-    addr.send(amount_before_fee - fee);
-    swap_Ether_Balance -= amount_before_fee - fee;
+    addr.send(_to_send);
+    swap_ether_balance -= _to_send;
   }
 
-  // reimburse full amount
-  // TODO - still charge fee for gas purposes?
-  function reimburseRemaining(Account[] accounts, uint index) {
-    // first sellers then buyers
+  // @dev Reimburse unmatched offers minus micro-fee for likely gas
+  function reimburseRemaining(Account[] accounts, uint index) internal {
+    uint _amount;
+    uint _fee;
     for(uint i = index; i < accounts.length; i++) {
-      // TODO - subtract the fee
-      // TODO - Referencing the addr variable since accounts[i] should give the object. Please check
-      accounts[i].addr.send(weiTokensToWei(accounts[i].number_tokens_in_wei));
+      _amount = weiTokensToWei(accounts[i].number_tokens_in_wei);
+      _fee = (_amount * PERCENT_CONTRACT_FEE) / HUNDRED;
+      accounts[i].addr.send(_amount - _fee);
+
+      // not keeping track since contract will expire right after
+      // swap_ether_balance -= (_amount - _fee);
     }
   }
 
-  // Changed the return variable name to 'amt' since 'wei' was not compiling
-  function weiTokensToWei(uint wei_tokens) returns (uint amt) {
+  /// @dev Converts DAO tokens in wei units, into actual wei amount of
+  /// Ether at given price
+  function weiTokensToWei(uint wei_tokens) returns (uint amt) internal {
     return (wei_tokens * PRICE_TOKEN_IN_WEI) / WEI_PER_ETHER;
   }
 
-  // Distributing 80% to the buyers and 20% to the sellers
-  function distributeDeposits(){
+  /// @dev Distribute `BUYER_FORFEITED_DEPOSIT_STAKE`% of forfeited_deposits to the buyers
+  function distributeDeposits() internal {
     // this includes fees...
-    uint total_amount_buyer = forfeited_deposits * 0.8;
+    uint total_amount_buyer = (forfeited_deposits * BUYER_FORFEITED_DEPOSIT_STAKE) / HUNDRED;
     uint amount_per_buyer = total_amount_buyer / buyers.length;
 
     for(uint i = 0; i < buyers.length; i++){
       buyers[i].addr.send(amount_per_buyer);
     }
-    // not needed - costly transaction fees...
-    /*exiter.send(amount_exiter);*/
+
   }
 
-  // destructor
+  /// @dev Destructor, allowed only after settlement is complete.
+  /// Distributes forfeited deposits. Exiter on suicide is contract owner
   function kill() {
-    // allow anyone
-    /*if (msg.sender != owner) { throw; }*/
     if (!settled) { throw; }
     distributeDeposits();
     suicide(exiter);
