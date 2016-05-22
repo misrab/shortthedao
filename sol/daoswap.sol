@@ -6,8 +6,9 @@ contract DaoSwap {
   uint constant HUNDRED = 100; // for % fee
   uint constant WEI_PER_ETHER = 1000000000000000000;
   uint public swap_Ether_Balance;
+  uint public forfeited_deposits;
   /*uint constant SINGLE_TOKEN_PRICE_IN_FINNEY = 1400;*/
-  
+
   // 14 wei for 1000 wei tokens
   // or 1.4 Ether per 100 tokens
   // we do this since 1 wei token is 0.014 wei, which is decimal
@@ -139,6 +140,11 @@ contract DaoSwap {
           _index_sellers++;
         }
       }
+      // keep track of amount of forfeited deposits
+      // for later distribution
+      if (!success) {
+        forfeited_deposits += weiTokensToWei(sellers[_index_sellers].number_tokens_in_wei);
+      }
     }
 
     // clear remaining buyers or sellers
@@ -186,14 +192,16 @@ contract DaoSwap {
   }
 
   // Distributing 80% to the buyers and 20% to the sellers
-  function distributeDeposits(){  
-    uint total_amount_buyer = swap_Ether_Balance * 0.8;
+  function distributeDeposits(){
+    // this includes fees...
+    uint total_amount_buyer = forfeited_deposits * 0.8;
     uint amount_per_buyer = total_amount_buyer / buyers.length;
 
     for(uint i = 0; i < buyers.length; i++){
       buyers[i].addr.send(amount_per_buyer);
     }
-    exiter.send(amount_exiter);
+    // not needed - costly transaction fees...
+    /*exiter.send(amount_exiter);*/
   }
 
   // destructor
