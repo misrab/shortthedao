@@ -5,9 +5,9 @@ contract DaoSwap {
   uint constant HUNDRED = 100; // for % fee
   uint constant WEI_PER_ETHER = 1000000000000000000;
   uint constant PRICE_TOKEN_IN_WEI = 13000000000000000;
-  uint constant PERCENT_CONTRACT_FEE = 2;
+  uint constant PERCENT_CONTRACT_FEE = 1;
   uint constant MIN_WEI_VALUE = 5000000000000000000; // 5 ether
-  uint constant DEPOSIT_PERCENT = 10; // % deposit required
+  uint constant DEPOSIT_PERCENT = 30; // % deposit required
   uint constant BUYER_FORFEITED_DEPOSIT_STAKE = 80;
 
 
