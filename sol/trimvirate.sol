@@ -12,7 +12,7 @@ contract triumvirate {
   uint256 total_wei = 0;
 
 
-  function triumvirate(address two, address three) {
+  function triumvirate(address _two, address _three) {
     one = msg.sender;
     two = _two;
     three = _three;
