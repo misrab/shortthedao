@@ -143,6 +143,20 @@ contract Token is TokenInterface {
   ManagedAccount.sol
   interface only
 */
+contract ManagedAccount is ManagedAccountInterface{
+
+    // The constructor sets the owner of the account
+    function ManagedAccount(address _owner, bool _payOwnerOnly);
+
+    /*// When the contract receives a transaction without data this is called.
+    // It counts the amount of ether it receives and stores it in
+    // accumulatedInput.
+    function() {
+        accumulatedInput += msg.value;
+    }*/
+
+    function payOut(address _recipient, uint _amount) returns (bool);
+}
 
 
 
@@ -1194,6 +1208,7 @@ contract DaoSwap {
   uint constant MIN_WEI_VALUE = 5000000000000000000; // 5 ether
   uint constant DEPOSIT_PERCENT = 30; // % deposit required
   uint constant BUYER_FORFEITED_DEPOSIT_STAKE = 80;
+  uint constant BILLION = 1000000000;
 
 
   /*address constant DAO_ADDRESS = 0xbb9bc244d798123fde783fcc1c72d3bb8c189413;*/
@@ -1229,8 +1244,8 @@ contract DaoSwap {
 
   // constructor
   function DaoSwap() {
-    cutoffEntry = TheDao.closingTime();
-    cutoffExit = cutoffEntry + 3 days;
+    cutoffEntry = now + 20 minutes;
+    cutoffExit = now + 30 minutes;
   }
 
   /// @notice Enter into a contract with `msg.value` amount of
@@ -1242,7 +1257,7 @@ contract DaoSwap {
     if (msg.value < MIN_WEI_VALUE) { throw; }
     swap_ether_balance += msg.value;
 
-    uint _number_tokens_in_wei = (HUNDRED / DEPOSIT_PERCENT) * (msg.value * WEI_PER_ETHER) / PRICE_TOKEN_IN_WEI;
+    uint _number_tokens_in_wei = (HUNDRED / DEPOSIT_PERCENT) * (msg.value * BILLION) / PRICE_TOKEN_IN_WEI;
 
     sellers.push(Account(msg.sender, _number_tokens_in_wei));
   }
@@ -1255,7 +1270,7 @@ contract DaoSwap {
     if (msg.value < MIN_WEI_VALUE) { throw; }
     swap_ether_balance += msg.value;
 
-    uint _number_tokens_in_wei = (msg.value * WEI_PER_ETHER) / PRICE_TOKEN_IN_WEI;
+    uint _number_tokens_in_wei = (msg.value * BILLION) / PRICE_TOKEN_IN_WEI;
     buyers.push(Account(msg.sender, _number_tokens_in_wei));
   }
 
@@ -1370,7 +1385,7 @@ contract DaoSwap {
   /// @dev Converts DAO tokens in wei units, into actual wei amount of
   /// Ether at given price
   function weiTokensToWei(uint wei_tokens) returns (uint amt) internal {
-    return (wei_tokens * PRICE_TOKEN_IN_WEI) / WEI_PER_ETHER;
+    return (wei_tokens * PRICE_TOKEN_IN_WEI) / BILLION;
   }
 
   /// @dev Distribute `BUYER_FORFEITED_DEPOSIT_STAKE`% of forfeited_deposits to the buyers
@@ -1394,4 +1409,3 @@ contract DaoSwap {
   }
 
 }
-
