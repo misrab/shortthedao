@@ -34,6 +34,48 @@ Which is itself based on the Ethereum standardized contract APIs:
 https://github.com/ethereum/wiki/wiki/Standardized_Contract_APIs
 */
 
+/*
+Basic account, used by the DAO contract to separately manage both the rewards
+and the extraBalance accounts.
+*/
+
+contract ManagedAccountInterface {
+    // The only address with permission to withdraw from this account
+    address public owner;
+    // If true, only the owner of the account can receive ether from it
+    bool public payOwnerOnly;
+    // The sum of ether (in wei) which has been sent to this contract
+    uint public accumulatedInput;
+
+    /// @notice Sends `_amount` of wei to _recipient
+    /// @param _amount The amount of wei to send to `_recipient`
+    /// @param _recipient The address to receive `_amount` of wei
+    /// @return True if the send completed
+    function payOut(address _recipient, uint _amount) returns (bool);
+
+    event PayOut(address indexed _recipient, uint _amount);
+}
+/*
+  ManagedAccount.sol
+  interface only
+*/
+contract ManagedAccount is ManagedAccountInterface{
+
+    // The constructor sets the owner of the account
+    function ManagedAccount(address _owner, bool _payOwnerOnly);
+
+    /*// When the contract receives a transaction without data this is called.
+    // It counts the amount of ether it receives and stores it in
+    // accumulatedInput.
+    function() {
+        accumulatedInput += msg.value;
+    }*/
+
+    function payOut(address _recipient, uint _amount) returns (bool);
+}
+
+
+
 /// @title Standard Token Contract.
 
 contract TokenInterface {
@@ -139,48 +181,7 @@ contract Token is TokenInterface {
 
 
 
-/*
-  ManagedAccount.sol
-  interface only
-*/
-contract ManagedAccount is ManagedAccountInterface{
 
-    // The constructor sets the owner of the account
-    function ManagedAccount(address _owner, bool _payOwnerOnly);
-
-    /*// When the contract receives a transaction without data this is called.
-    // It counts the amount of ether it receives and stores it in
-    // accumulatedInput.
-    function() {
-        accumulatedInput += msg.value;
-    }*/
-
-    function payOut(address _recipient, uint _amount) returns (bool);
-}
-
-
-
-/*
-Basic account, used by the DAO contract to separately manage both the rewards
-and the extraBalance accounts.
-*/
-
-contract ManagedAccountInterface {
-    // The only address with permission to withdraw from this account
-    address public owner;
-    // If true, only the owner of the account can receive ether from it
-    bool public payOwnerOnly;
-    // The sum of ether (in wei) which has been sent to this contract
-    uint public accumulatedInput;
-
-    /// @notice Sends `_amount` of wei to _recipient
-    /// @param _amount The amount of wei to send to `_recipient`
-    /// @param _recipient The address to receive `_amount` of wei
-    /// @return True if the send completed
-    function payOut(address _recipient, uint _amount) returns (bool);
-
-    event PayOut(address indexed _recipient, uint _amount);
-}
 
 
 
@@ -1218,8 +1219,10 @@ contract DaoSwap {
   address constant exiter = 0; // TODO = 0x...
 
   struct Account { address addr; uint number_tokens_in_wei; }
-  Account[] sellers;
-  Account[] buyers;
+  struct sellers { address addr; uint number_tokens_in_wei; }
+  struct buyers { address addr; uint number_tokens_in_wei; }
+  // Account[] sellers;
+  // Account[] buyers;
 
   /// @notice Buyers and sellers must entered into the contract by this date
   uint public cutoffEntry;
@@ -1257,9 +1260,9 @@ contract DaoSwap {
     if (msg.value < MIN_WEI_VALUE) { throw; }
     swap_ether_balance += msg.value;
 
-    uint _number_tokens_in_wei = (HUNDRED / DEPOSIT_PERCENT) * (msg.value * BILLION) / PRICE_TOKEN_IN_WEI;
+    uint _num_tokens = (HUNDRED / DEPOSIT_PERCENT) * (msg.value * BILLION) / PRICE_TOKEN_IN_WEI;
 
-    sellers.push(Account(msg.sender, _number_tokens_in_wei));
+    sellers.push(Account(msg.sender, _num_tokens));
   }
 
   /// @notice Enter into a conctract to purchase `msg.value` worth of tokens
@@ -1270,9 +1273,13 @@ contract DaoSwap {
     if (msg.value < MIN_WEI_VALUE) { throw; }
     swap_ether_balance += msg.value;
 
-    uint _number_tokens_in_wei = (msg.value * BILLION) / PRICE_TOKEN_IN_WEI;
-    buyers.push(Account(msg.sender, _number_tokens_in_wei));
+    uint _num_tokens = (msg.value * BILLION) / PRICE_TOKEN_IN_WEI;
+    buyers.push(Account(msg.sender, _num_tokens));
   }
+
+  // FIFO indexing
+    uint public _index_sellers = 0;
+    uint public _index_buyers = 0;
 
   // the owner of this contract can execute the trades
   // after expiry.
@@ -1281,9 +1288,7 @@ contract DaoSwap {
   // exported
   function CallExpiry() afterCutoffExit {
 
-    // FIFO indexing
-    uint _index_sellers = 0;
-    uint _index_buyers = 0;
+    
     bool success;
     while (_index_sellers < sellers.length && _index_buyers < buyers.length) {
       // case 1: buyer and seller values match
@@ -1362,7 +1367,7 @@ contract DaoSwap {
     uint _deposit = (_revenue * DEPOSIT_PERCENT) / HUNDRED;
     uint _fee = ((_revenue + _deposit) * PERCENT_CONTRACT_FEE) / HUNDRED;
 
-    uint _to_send = _revenue + _deposit - fee;
+    uint _to_send = _revenue + _deposit - _fee;
 
     addr.send(_to_send);
     swap_ether_balance -= _to_send;
@@ -1384,7 +1389,7 @@ contract DaoSwap {
 
   /// @dev Converts DAO tokens in wei units, into actual wei amount of
   /// Ether at given price
-  function weiTokensToWei(uint wei_tokens) returns (uint amt) internal {
+  function weiTokensToWei(uint wei_tokens) internal returns (uint amt){
     return (wei_tokens * PRICE_TOKEN_IN_WEI) / BILLION;
   }
 
