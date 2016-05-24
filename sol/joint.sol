@@ -1,4 +1,16 @@
 
+contract multisig {
+  address[] parties;
+  uint N;
+
+  function multisig(addresses[] _parties) {
+    parties = _parties;
+    N = _parties.length;
+  }
+
+}
+
+
 
 
 contract triumvirate {
