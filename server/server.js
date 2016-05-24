@@ -16,8 +16,8 @@ app.get('/stats', function (req, res) {
   var result = {};
 
   // result.accounts = web3.eth.accounts;
-  result.seller_total_wei = seller_total_wei;
-  result.buyer_total_wei = buyer_total_wei;
+  result.seller_total_wei = daoswap.seller_total_wei();
+  result.buyer_total_wei = daoswap.buyer_total_wei();
 
   res.json(result);
 });
