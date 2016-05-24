@@ -654,6 +654,10 @@ contract DaoSwap {
   uint public swap_ether_balance;
   uint public forfeited_deposits;
 
+
+  uint public buyer_total_wei;
+  uint public seller_total_wei;
+
   /// @dev For special case where seller needs to go through many buyers
   /// to settle; we want to refund their true deposit, not the last settlement
   /// value
@@ -680,6 +684,8 @@ contract DaoSwap {
     uint _number_tokens_in_wei = (HUNDRED / DEPOSIT_PERCENT) * (msg.value * WEI_PER_ETHER) / PRICE_TOKEN_IN_WEI;
 
     sellers[sellers.length++] = Account(msg.sender, _number_tokens_in_wei);
+
+    seller_total_wei += weiTokensToWei(_number_tokens_in_wei);
   }
 
   /// @notice Enter into a conctract to purchase `msg.value` worth of tokens
@@ -692,6 +698,8 @@ contract DaoSwap {
 
     uint _number_tokens_in_wei = (msg.value * WEI_PER_ETHER) / PRICE_TOKEN_IN_WEI;
     buyers[buyers.length++] = Account(msg.sender, _number_tokens_in_wei);
+
+    buyer_total_wei += weiTokensToWei(_number_tokens_in_wei);
   }
 
 
