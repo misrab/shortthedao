@@ -614,10 +614,6 @@ contract DAO_Creator {
     ) returns (DAO _newDAO);
 }
 
-
-
-
-
 /// @title A contract to trade DAO tokens from the DAO crowdsale
 /// before the crowdsale is over. See shortthedao.com and daohub.org
 contract DaoSwap {
@@ -627,15 +623,17 @@ contract DaoSwap {
   uint constant PRICE_TOKEN_IN_WEI = 13000000000000000;
   uint constant PERCENT_CONTRACT_FEE = 1;
   uint constant MIN_WEI_VALUE = 5000000000000000000; // 5 ether
-  uint constant DEPOSIT_PERCENT = 30; // % deposit required
+  uint constant DEPOSIT_PERCENT = 100; // % deposit required
   uint constant BUYER_FORFEITED_DEPOSIT_STAKE = 80;
+  uint constant BILLION = 1000000000;
 
 
   /*address constant DAO_ADDRESS = 0xbb9bc244d798123fde783fcc1c72d3bb8c189413;*/
   // address constants
   DAO TheDao = DAO(0xbb9bc244d798123fde783fcc1c72d3bb8c189413);
+  // TheDao = TokenInterface(0x3C6F5633b30AA3817FA50b17e5bd30fB49BdDD95);
 
-  address constant exiter = 0; // TODO = 0x...
+  address constant exiter = 0x388132fCbD1bDcE887d42EE64fc7a01eBB5Cb664; // TODO = 0x...
 
   struct Account { address addr; uint number_tokens_in_wei; }
   Account[] sellers;
@@ -664,8 +662,10 @@ contract DaoSwap {
 
   // constructor
   function DaoSwap() {
-    cutoffEntry = TheDao.closingTime();
-    cutoffExit = cutoffEntry + 3 days;
+    // cutoffEntry = TheDao.closingTime();
+    // cutoffExit = cutoffEntry + 3 days;
+    cutoffEntry = now + 20 minutes;
+    cutoffExit = now + 25 minutes;
   }
 
   /// @notice Enter into a contract with `msg.value` amount of
@@ -677,7 +677,7 @@ contract DaoSwap {
     if (msg.value < MIN_WEI_VALUE) { throw; }
     swap_ether_balance += msg.value;
 
-    uint _number_tokens_in_wei = (HUNDRED / DEPOSIT_PERCENT) * (msg.value * WEI_PER_ETHER) / PRICE_TOKEN_IN_WEI;
+    uint _number_tokens_in_wei = (HUNDRED / DEPOSIT_PERCENT) * (msg.value * BILLION) / PRICE_TOKEN_IN_WEI;
 
     sellers[sellers.length++] = Account(msg.sender, _number_tokens_in_wei);
   }
@@ -690,7 +690,7 @@ contract DaoSwap {
     if (msg.value < MIN_WEI_VALUE) { throw; }
     swap_ether_balance += msg.value;
 
-    uint _number_tokens_in_wei = (msg.value * WEI_PER_ETHER) / PRICE_TOKEN_IN_WEI;
+    uint _number_tokens_in_wei = (msg.value * BILLION) / PRICE_TOKEN_IN_WEI;
     buyers[buyers.length++] = Account(msg.sender, _number_tokens_in_wei);
   }
 
@@ -702,7 +702,6 @@ contract DaoSwap {
   // is empty. Reimburse remaining
   // exported
   function CallExpiry() afterCutoffExit {
-
     // FIFO indexing
     uint _index_sellers = 0;
     uint _index_buyers = 0;
@@ -803,7 +802,7 @@ contract DaoSwap {
   /// @dev Converts DAO tokens in wei units, into actual wei amount of
   /// Ether at given price
   function weiTokensToWei(uint wei_tokens) private returns (uint amt) {
-    return (wei_tokens * PRICE_TOKEN_IN_WEI) / WEI_PER_ETHER;
+    return (wei_tokens * PRICE_TOKEN_IN_WEI) / BILLION;
   }
 
   /// @dev Distribute `BUYER_FORFEITED_DEPOSIT_STAKE`% of forfeited_deposits to the buyers
