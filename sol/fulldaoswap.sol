@@ -630,8 +630,8 @@ contract DaoSwap {
 
   /*address constant DAO_ADDRESS = 0xbb9bc244d798123fde783fcc1c72d3bb8c189413;*/
   // address constants
-  DAO TheDao = DAO(0xbb9bc244d798123fde783fcc1c72d3bb8c189413);
-  // TheDao = TokenInterface(0x3C6F5633b30AA3817FA50b17e5bd30fB49BdDD95);
+  // DAO TheDao = DAO(0xbb9bc244d798123fde783fcc1c72d3bb8c189413);
+  TokenInterface TheDao = TokenInterface(0x3C6F5633b30AA3817FA50b17e5bd30fB49BdDD95);
 
   address constant exiter = 0x388132fCbD1bDcE887d42EE64fc7a01eBB5Cb664; // TODO = 0x...
 
@@ -664,8 +664,8 @@ contract DaoSwap {
   function DaoSwap() {
     // cutoffEntry = TheDao.closingTime();
     // cutoffExit = cutoffEntry + 3 days;
-    cutoffEntry = now + 20 minutes;
-    cutoffExit = now + 25 minutes;
+    cutoffEntry = now + 2 minutes;
+    cutoffExit = now + 3 minutes;
   }
 
   /// @notice Enter into a contract with `msg.value` amount of
@@ -806,7 +806,7 @@ contract DaoSwap {
   }
 
   /// @dev Distribute `BUYER_FORFEITED_DEPOSIT_STAKE`% of forfeited_deposits to the buyers
-  function distributeDeposits() {
+  function distributeDeposits() private {
     // this includes fees...
     uint total_amount_buyer = (forfeited_deposits * BUYER_FORFEITED_DEPOSIT_STAKE) / HUNDRED;
     uint amount_per_buyer = total_amount_buyer / buyers.length;
